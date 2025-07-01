@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>掲示板</title>
+  <style>
+    body { font-family: sans-serif; margin: 20px; }
+    .btn { margin: 5px; padding: 5px 10px; }
+    .comment-box { border: 1px solid #aaa; padding: 10px; margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>掲示板</h1>
+
+  <button class="btn" onclick="toggleForm('signupForm')">アカウント作成</button>
+  <button class="btn" onclick="toggleForm('loginForm')">ログイン</button>
+  <button class="btn" onclick="logout()">ログアウト</button>
+
+  <div id="signupForm" style="display:none;">
+    <h3>アカウント作成</h3>
+    <input id="signupName" placeholder="ユーザー名"><br>
+    <input id="signupPass" type="password" placeholder="パスワード"><br>
+    <button onclick="signup()">作成</button>
+  </div>
+
+  <div id="loginForm" style="display:none;">
+    <h3>ログイン</h3>
+    <input id="loginName" placeholder="ユーザー名"><br>
+    <input id="loginPass" type="password" placeholder="パスワード"><br>
+    <button onclick="login()">ログイン</button>
+  </div>
+
+  <div id="postArea" style="display:none;">
+    <h3>投稿</h3>
+    <textarea id="commentText" rows="3" cols="50" placeholder="コメントを入力..."></textarea><br>
+    <button onclick="postComment()">投稿する</button>
+  </div>
+
+  <h3>コメント</h3>
+  <div id="comments"></div>
+
+  <script>
+    let currentUser = null;
+
+    function toggleForm(formId) {
+      document.getElementById('signupForm').style.display = 'none';
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById(formId).style.display = 'block';
+    }
+
+    function signup() {
+      const username = document.getElementById('signupName').value;
+      const password = document.getElementById('signupPass').value;
+      fetch('/api/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      }).then(res => res.json())
+        .then(data => alert(data.message));
+    }
+
+    function login() {
+      const username = document.getElementById('loginName').value;
+      const password = document.getElementById('loginPass').value;
+      fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      }).then(res => res.json())
+        .then(data => {
+          if (data.user) {
+            currentUser = data.user;
+            document.getElementById('postArea').style.display = 'block';
+            alert('ログイン成功');
+            loadComments();
+          } else {
+            alert('ログイン失敗');
+          }
+        });
+    }
+
+    function logout() {
+      currentUser = null;
+      document.getElementById('postArea').style.display = 'none';
+      alert('ログアウトしました');
+    }
+
+    function postComment() {
+      const text = document.getElementById('commentText').value;
+      fetch('/api/comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser.username, text })
+      }).then(res => res.json())
+        .then(data => {
+          document.getElementById('commentText').value = '';
+          loadComments();
+        });
+    }
+
+    function loadComments() {
+      fetch('/api/comments')
+        .then(res => res.json())
+        .then(data => {
+          data.reverse();
+          const container = document.getElementById('comments');
+          container.innerHTML = '';
+          data.forEach((c, i) => {
+            const replaced = c.text.replace(/>>(\d+)/g, '<a href="#c$1">&gt;&gt;$1</a>');
+            const html = `
+              <div class="comment-box" id="c${i + 1}">
+                <strong>${i + 1}. ${c.username}@${c.hash.slice(0, 6)}</strong><br>
+                <p>${replaced}</p>
+              </div>`;
+            container.innerHTML += html;
+          });
+        });
+    }
+
+    // 最初に読み込み
+    loadComments();
+  </script>
+</body>
+</html>
