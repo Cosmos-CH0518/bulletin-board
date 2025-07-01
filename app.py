@@ -1,9 +1,9 @@
 from flask import Flask, request, jsonify, render_template
-from flask import Flask, request, jsonify
 from flask_bcrypt import Bcrypt
 from flask_cors import CORS
 import hashlib
 import os
+import html  # 追加
 
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -56,7 +56,10 @@ def comment():
     user = users.get(username)
     if not user:
         return jsonify({'message': 'ユーザーが見つかりません'}), 400
-    comments.append({'username': username, 'text': text, 'hash': user['hash']})
+
+    safe_text = html.escape(text)  # XSS対策のためエスケープ
+
+    comments.append({'username': username, 'text': safe_text, 'hash': user['hash']})
     if len(comments) > 1000:
         comments.clear()
     return jsonify({'message': '投稿完了'})
