@@ -98,26 +98,31 @@
         });
     }
 
-    function loadComments() {
-      fetch('/api/comments')
-        .then(res => res.json())
-        .then(data => {
-          const container = document.getElementById('comments');
-          container.innerHTML = '';
-          data.forEach((c, i) => {
-            const replaced = c.text.replace(/>>(\d+)/g, '<a href="#c$1">&gt;&gt;$1</a>');
-            const html = `
-              <div class="comment-box" id="c${i + 1}">
-                <strong>${i + 1}. ${c.username}@${c.hash.slice(0, 6)}</strong><br>
-                <p>${replaced}</p>
-              </div>`;
-            container.innerHTML += html;
-          });
-        });
-    }
+function loadComments() {
+  fetch('/api/comments')
+    .then(res => res.json())
+    .then(data => {
+      const container = document.getElementById('comments');
+      container.innerHTML = '';
+      // dataを逆順にしてループ
+      data.slice().reverse().forEach((c, i) => {
+        const replaced = c.text.replace(/>>(\d+)/g, '<a href="#c$1">&gt;&gt;$1</a>');
+        const html = `
+          <div class="comment-box" id="c${data.length - i}">
+            <strong>${data.length - i}. ${c.username}@${c.hash.slice(0, 6)}</strong><br>
+            <p>${replaced}</p>
+          </div>`;
+        container.innerHTML += html;
+      });
+    });
+}
 
-    // 最初に読み込み
-    loadComments();
+// 最初の読み込み
+loadComments();
+
+// 5秒ごとに更新（コメント再読み込み）
+setInterval(loadComments, 5000);
+    
   </script>
 </body>
 </html>
