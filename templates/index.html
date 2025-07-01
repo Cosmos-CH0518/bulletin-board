@@ -10,7 +10,31 @@
   </style>
 </head>
 <body>
-  <h1>掲示板</h1>
+  <style>
+.example4 {
+background: linear-gradient(
+to right,
+#e60000,
+#f39800,
+#fff100,
+#009944,
+#0068b7,
+#1d2088,
+#920783,
+#e60000
+)
+0 / 200%;
+animation: 5s example4 linear infinite;
+-webkit-background-clip: text;
+-webkit-text-fill-color: transparent;
+}
+@keyframes example4 {
+100% {
+background-position: 200%;
+}
+}
+</style>
+<div class="example4"><h1>DeerBBS</h1></div>
 
   <button class="btn" onclick="toggleForm('signupForm')">アカウント作成</button>
   <button class="btn" onclick="toggleForm('loginForm')">ログイン</button>
