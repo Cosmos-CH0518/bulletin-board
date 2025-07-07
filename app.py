@@ -1,72 +1,53 @@
-from flask import Flask, request, jsonify, render_template
-from flask_bcrypt import Bcrypt
-from flask_cors import CORS
-import hashlib
+from flask import Flask, request, render_template, redirect, url_for, flash
+from flask_sqlalchemy import SQLAlchemy
+from flask_wtf import FlaskForm
+from wtforms import StringField, TextAreaField
+from wtforms.validators import DataRequired, Length
+from datetime import datetime
 import os
-import html  # 追加
 
 app = Flask(__name__)
-app.secret_key = os.urandom(24)
-CORS(app)
-bcrypt = Bcrypt(app)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'devkey')
+app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////tmp/test.db'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-users = {}
-comments = []
+db = SQLAlchemy(app)
 
-def generate_hash(username):
-    salt = os.urandom(8).hex()
-    hashed = hashlib.sha256((username + salt).encode()).hexdigest()
-    return hashed, salt
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    pub_date = db.Column(db.DateTime, nullable=False, default=datetime.utcnow)
+    name = db.Column(db.Text(), nullable=False)
+    comment = db.Column(db.Text(), nullable=False)
 
-@app.route('/')
+class CommentForm(FlaskForm):
+    name = StringField('名前', validators=[DataRequired(), Length(max=50)])
+    comment_data = TextAreaField('コメント', validators=[DataRequired(), Length(max=500)])
+
+
+with app.app_context():
+    db.create_all()
+
+@app.route("/", methods=["GET", "POST"])
 def index():
-    return render_template('index.html')
+    form = CommentForm()
+    if form.validate_on_submit():
+        name = form.name.data.strip()
+        comment = form.comment_data.data.strip()
+        new_comment = Comment(pub_date=datetime.now(), name=name, comment=comment)
+        db.session.add(new_comment)
+        db.session.commit()
+        flash("投稿が完了しました。", "success")
+        return redirect(url_for("index"))
+    comments = Comment.query.order_by(Comment.pub_date.desc()).all()
+    return render_template("index.html", form=form, lines=comments)
 
-@app.route('/api/signup', methods=['POST'])
-def signup():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    if not username or not password:
-        return jsonify({'message': '入力不備'}), 400
-    if username in users:
-        return jsonify({'message': '既に存在します'}), 400
-    pw_hash = bcrypt.generate_password_hash(password).decode()
-    hash_val, salt = generate_hash(username)
-    users[username] = {'password': pw_hash, 'hash': hash_val, 'salt': salt}
-    return jsonify({'message': '登録完了'})
+@app.errorhandler(400)
+def bad_request(e):
+    return render_template("error.html", message="不正なリクエストです。"), 400
 
-@app.route('/api/login', methods=['POST'])
-def login():
-    data = request.json
-    username = data.get('username')
-    password = data.get('password')
-    user = users.get(username)
-    if not user or not bcrypt.check_password_hash(user['password'], password):
-        return jsonify({'message': 'ログイン失敗'}), 401
-    return jsonify({'message': 'ログイン成功', 'user': {'username': username, 'hash': user['hash']}})
+@app.errorhandler(500)
+def server_error(e):
+    return render_template("error.html", message="サーバーエラーが発生しました。"), 500
 
-@app.route('/api/comment', methods=['POST'])
-def comment():
-    data = request.json
-    username = data.get('username')
-    text = data.get('text')
-    if not username or not text:
-        return jsonify({'message': '無効なリクエスト'}), 400
-    user = users.get(username)
-    if not user:
-        return jsonify({'message': 'ユーザーが見つかりません'}), 400
-
-    safe_text = html.escape(text)  # XSS対策のためエスケープ
-
-    comments.append({'username': username, 'text': safe_text, 'hash': user['hash']})
-    if len(comments) > 1000:
-        comments.clear()
-    return jsonify({'message': '投稿完了'})
-
-@app.route('/api/comments', methods=['GET'])
-def get_comments():
-    return jsonify(comments)
-
-if __name__ == '__main__':
-    app.run(debug=True)
+if __name__ == "__main__":
+    app.run(host="localhost", debug=True)
